@@ -254,7 +254,7 @@ You are a helpful AI assistant. Answer user questions thoughtfully and thoroughl
         progress_bar.progress(20, text="Configuring Reasoning Engine...")
         
         langchain_agent = reasoning_engines.LangchainAgent(
-            model=model_resource,
+            model="gemini-2.0-flash-exp",
             model_kwargs={
                 "temperature": 0.7,
                 "max_output_tokens": 2048,
@@ -271,9 +271,11 @@ You are a helpful AI assistant. Answer user questions thoughtfully and thoroughl
             display_name=config["agent_name"],
             description=config["description"],
             requirements=[
-                "google-cloud-aiplatform>=1.50.0",
-                "langchain>=0.1.0",
-                "langchain-google-vertexai>=0.1.0",
+                "google-cloud-aiplatform[langchain,reasoningengine]>=1.72.0",
+                "cloudpickle>=3.0.0",
+                "langchain>=0.3.0",
+                "langchain-google-vertexai>=2.0.0",
+                "pydantic>=2.0.0",
             ],
         )
         
