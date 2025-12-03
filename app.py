@@ -125,19 +125,18 @@ def get_access_token():
     
     try:
         credentials_info = json.loads(credentials_json)
-        credentials = service_account.Credentials.from_service_account_info(
+        
+        from google.oauth2 import service_account as sa
+        credentials = sa.Credentials.from_service_account_info(
             credentials_info,
-            scopes=VERTEX_AI_SCOPES
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
         )
         
-        auth_req = Request()
+        from google.auth.transport.requests import Request as AuthRequest
+        auth_req = AuthRequest()
         credentials.refresh(auth_req)
         
         if credentials.token:
-            return credentials.token
-        
-        if hasattr(credentials, 'valid') and credentials.valid:
-            credentials.refresh(auth_req)
             return credentials.token
             
         st.warning("Could not obtain access token from credentials")
