@@ -1,22 +1,28 @@
 # Vertex AI Agent Builder
 
 ## Overview
-A Streamlit application that creates and deploys Vertex AI agents from natural language descriptions. Users describe their agent requirements in plain text, and the application parses, configures, and deploys a working AI agent with a REST API endpoint.
+A React + FastAPI application with CVS Health branding that creates and deploys Vertex AI agents from natural language descriptions. Users describe their agent requirements in plain text, and the application parses, configures, and deploys a working AI agent with a REST API endpoint.
 
 ## Current State
 - **Status**: MVP Complete
 - **Last Updated**: December 2024
-- **Framework**: Streamlit + Google Cloud Vertex AI + LangChain
+- **Frontend**: React + Material UI + TypeScript + Vite
+- **Backend**: FastAPI + Python
+- **Theme**: CVS Health corporate branding
+
+## CVS Health Brand Identity
+- **Primary Red**: #CC0000 (CTAs, primary actions)
+- **Dark Blue**: #17447C (headers, navigation)
+- **Light Blue**: #44B4E7 (accents, highlights)
+- **Design**: Professional healthcare aesthetic with gradient backgrounds
 
 ## Features
-1. **Text Input Interface**: Simple text area for describing agent requirements with sample prompts
-2. **Intent Parsing**: Uses Gemini 2.0 Flash (gemini-2.0-flash-exp) to parse requirements into structured JSON
-3. **Configuration Editor**: Interactive JSON editor for reviewing and modifying agent configuration
-4. **Dual Deployment Options**:
-   - Primary: Vertex AI Reasoning Engine with LangChain (fully-qualified model resource)
-   - Fallback: Vertex AI Agent Builder with system instructions
-5. **Agent Testing**: Test deployed agents via their actual endpoints with proper authentication
-6. **Configurable Project Settings**: Project ID and location configurable via environment variables
+1. **4-Step Workflow**: Describe → Configure → Deploy → Test with visual stepper
+2. **Intent Parsing**: Uses Gemini 2.0 Flash to parse requirements into structured JSON
+3. **Configuration Editor**: Interactive JSON editor with syntax highlighting
+4. **Agent Deployment**: Vertex AI Reasoning Engine with LangChain integration
+5. **Agent Testing**: Chat interface to test deployed agents
+6. **Quick-Start Templates**: Pre-built sample prompts for common agent types
 
 ## Configuration
 
@@ -35,20 +41,34 @@ A Streamlit application that creates and deploys Vertex AI agents from natural l
 ## Project Structure
 ```
 /
-├── app.py                    # Main Streamlit application
-├── .streamlit/
-│   └── config.toml          # Streamlit configuration
-├── pyproject.toml           # Python dependencies
-└── replit.md                # This file
+├── frontend/
+│   ├── src/
+│   │   ├── App.tsx              # Main application component
+│   │   ├── theme.ts             # CVS Health Material UI theme
+│   │   ├── api.ts               # API client for backend
+│   │   ├── types/
+│   │   │   └── index.ts         # TypeScript interfaces
+│   │   └── components/
+│   │       ├── RequirementInput.tsx  # Step 1: Natural language input
+│   │       ├── ConfigEditor.tsx      # Step 2: JSON configuration editor
+│   │       ├── DeploymentPanel.tsx   # Step 3: Deployment progress
+│   │       └── AgentTester.tsx       # Step 4: Chat testing interface
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── vite.config.ts
+├── backend/
+│   └── main.py                  # FastAPI backend with all endpoints
+├── pyproject.toml               # Python dependencies
+└── replit.md                    # This file
 ```
 
 ## User Flow
-1. User enters agent requirements in natural language
+1. User enters agent requirements in natural language (or clicks a quick-start chip)
 2. Click "Generate Configuration" to parse with Gemini 2.0
 3. Review and optionally edit the JSON configuration
-4. Click "Create & Deploy Agent" to deploy to Vertex AI
-5. Use the returned endpoint URL to interact with the agent
-6. Test the agent directly via the deployed endpoint
+4. Click "Deploy to Vertex AI" to deploy the agent
+5. Wait for deployment (with real-time status updates)
+6. Test the agent via the chat interface
 
 ## Parsed Configuration Fields
 - `agent_name`: Identifier for the agent (lowercase with underscores)
@@ -59,63 +79,58 @@ A Streamlit application that creates and deploys Vertex AI agents from natural l
 - `personality`: Communication style
 - `instructions`: Detailed behavior instructions
 
-## Deployment Types
+## API Endpoints
 
-### Reasoning Engine (Primary)
-- Uses Vertex AI Reasoning Engine with LangChain
-- Uses fully-qualified model resource path
-- Creates a dedicated agent resource in Vertex AI
-- Provides a unique resource name and endpoint URL
-- Takes 5-10 minutes to deploy
+### Backend (FastAPI on port 8000)
+- `POST /api/parse-requirements`: Parse natural language into agent config
+- `POST /api/deploy-agent`: Start agent deployment
+- `GET /api/deployment-status/{id}`: Get deployment status
+- `POST /api/test-agent`: Test a deployed agent
 
-### Vertex AI Agent (Fallback)
-- Uses Vertex AI with system instructions
-- Faster deployment
-- Uses the Gemini generateContent endpoint with embedded system instruction
-- Agent configuration stored in session and metadata
+### Frontend (Vite on port 5000)
+- Serves the React application
+- Proxies API requests to backend
 
 ## Running Locally
 ```bash
-streamlit run app.py --server.port 5000
+# Frontend
+cd frontend && npm run dev -- --port 5000
+
+# Backend
+uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+## State Management
+- Uses React Query for server state
+- Local state for UI flow (stepper, forms)
+- Automatic state reset on configuration changes
+- Deployment state invalidation on any config edit
+
 ## Dependencies
-- streamlit
+
+### Frontend
+- react, react-dom
+- @mui/material, @mui/icons-material
+- @emotion/react, @emotion/styled
+- @tanstack/react-query
+- axios
+- typescript, vite
+
+### Backend
+- fastapi, uvicorn
 - google-cloud-aiplatform
 - google-auth
-- google-oauth2
-- langchain
-- langchain-google-vertexai
-- requests
+- langchain, langchain-google-vertexai
+- pydantic
 
 ## Authentication
 The application uses service account credentials with proper OAuth2 scopes:
 - `https://www.googleapis.com/auth/cloud-platform`
 - `https://www.googleapis.com/auth/aiplatform`
 
-## Testing Deployed Agents
-The test interface calls the actual deployed endpoint:
-- For Reasoning Engine: Uses the `remote_agent.query()` method or resource lookup
-- For Vertex AI Agent: Makes authenticated HTTP requests to the Vertex AI API with system instruction
-- Fallback: Uses local Gemini model with same system instruction for consistency
-
-## API Usage Example
-After deployment, you can use curl to call your agent:
-```bash
-curl -X POST \
-  "https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT/locations/us-central1/publishers/google/models/gemini-2.0-flash-exp:generateContent" \
-  -H "Authorization: Bearer $(gcloud auth print-access-token)" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "contents": [{"role": "user", "parts": [{"text": "YOUR_QUERY"}]}],
-    "systemInstruction": {"parts": [{"text": "YOUR_AGENT_SYSTEM_INSTRUCTION"}]},
-    "generationConfig": {"temperature": 0.7, "maxOutputTokens": 2048}
-  }'
-```
-
 ## Recent Changes
-- December 2024: Added configurable project/location via environment variables
-- December 2024: Implemented proper Reasoning Engine deployment with fully-qualified model resource
-- December 2024: Fixed credential scoping for API authentication
-- December 2024: Added endpoint-based testing with proper fallback chain
-- December 2024: Added API usage example in deployment details
+- December 2024: Migrated from Streamlit to React + Material UI + FastAPI
+- December 2024: Implemented CVS Health corporate branding
+- December 2024: Added 4-step workflow with visual stepper
+- December 2024: Built comprehensive state management with proper reset logic
+- December 2024: Created quick-start template chips for common agent types
