@@ -82,22 +82,33 @@ def init_vertex_ai():
     """Initialize Vertex AI with project and location."""
     config = get_project_config()
     credentials = get_credentials()
+    staging_bucket = f"gs://{config['project_id']}-staging"
     
     try:
         if credentials:
             vertexai.init(
                 project=config["project_id"], 
                 location=config["location"],
-                credentials=credentials
+                credentials=credentials,
+                staging_bucket=staging_bucket
             )
             aiplatform.init(
                 project=config["project_id"], 
                 location=config["location"],
-                credentials=credentials
+                credentials=credentials,
+                staging_bucket=staging_bucket
             )
         else:
-            vertexai.init(project=config["project_id"], location=config["location"])
-            aiplatform.init(project=config["project_id"], location=config["location"])
+            vertexai.init(
+                project=config["project_id"], 
+                location=config["location"],
+                staging_bucket=staging_bucket
+            )
+            aiplatform.init(
+                project=config["project_id"], 
+                location=config["location"],
+                staging_bucket=staging_bucket
+            )
         return True
     except Exception as e:
         st.error(f"Failed to initialize Vertex AI: {str(e)}")
@@ -118,8 +129,19 @@ def get_access_token():
             credentials_info,
             scopes=VERTEX_AI_SCOPES
         )
-        credentials.refresh(Request())
-        return credentials.token
+        
+        auth_req = Request()
+        credentials.refresh(auth_req)
+        
+        if credentials.token:
+            return credentials.token
+        
+        if hasattr(credentials, 'valid') and credentials.valid:
+            credentials.refresh(auth_req)
+            return credentials.token
+            
+        st.warning("Could not obtain access token from credentials")
+        return None
     except Exception as e:
         st.error(f"Failed to get access token: {str(e)}")
         return None
