@@ -236,9 +236,27 @@ def _deploy_reasoning_engine_worker(config: dict, system_message: str, agent_cod
     This runs in a separate thread so the UI can keep updating.
     """
     config_env = get_project_config()
+    project_id = config_env["project_id"]
     location = config_env["location"]
+    staging_bucket = "gs://vertex-agent-staging"
     
     print(f"[DEPLOY-WORKER] Starting deployment for agent: {config.get('agent_name', 'unknown')}", flush=True)
+    
+    print("[DEPLOY-WORKER] Initializing Vertex AI with staging bucket...", flush=True)
+    credentials = get_credentials()
+    if credentials:
+        vertexai.init(
+            project=project_id,
+            location=location,
+            credentials=credentials,
+            staging_bucket=staging_bucket
+        )
+    else:
+        vertexai.init(
+            project=project_id,
+            location=location,
+            staging_bucket=staging_bucket
+        )
     
     print("[DEPLOY-WORKER] Creating LangChain agent...", flush=True)
     langchain_agent = reasoning_engines.LangchainAgent(
@@ -258,10 +276,11 @@ def _deploy_reasoning_engine_worker(config: dict, system_message: str, agent_cod
         display_name=config["agent_name"],
         description=config["description"],
         requirements=[
-            "google-cloud-aiplatform[langchain]>=1.50.0",
-            "cloudpickle>=3.0.0",
-            "langchain>=0.3.0",
-            "langchain-google-vertexai>=2.0.0",
+            "google-cloud-aiplatform[langchain,agent_engines]>=1.72.0",
+            "cloudpickle==3.0.0",
+            "langchain>=0.3.0,<0.4.0",
+            "langchain-google-vertexai>=2.0.0,<3.0.0",
+            "pydantic>=2.10",
         ],
     )
     print(f"[DEPLOY-WORKER] Deployment complete! Resource: {remote_agent.resource_name}", flush=True)
