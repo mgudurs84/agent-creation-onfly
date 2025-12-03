@@ -228,16 +228,17 @@ Respond to the following user input:"""
 
 
 def deploy_reasoning_engine(config: dict) -> dict:
-    """Deploy agent using Vertex AI Agent Engine with LangChain."""
+    """Deploy agent using Vertex AI Agent Engine with LangChain.
+    
+    Note: Agent Engine deployment can take 5-10 minutes. If it fails or times out,
+    we automatically fall back to the Gemini API deployment which is instant.
+    """
     config_env = get_project_config()
     project_id = config_env["project_id"]
     location = config_env["location"]
     
     try:
         agent_code = create_agent_template(config)
-        progress_bar = st.progress(0, text="Initializing deployment...")
-        
-        progress_bar.progress(10, text="Creating LangChain agent...")
         
         system_message = f"""{config["instructions"]}
 
@@ -247,7 +248,12 @@ Description: {config["description"]}
 
 You are a helpful AI assistant. Answer user questions thoughtfully and thoroughly."""
 
-        progress_bar.progress(20, text="Configuring Agent Engine...")
+        st.info("⏳ Attempting Vertex AI Agent Engine deployment (this can take 5-10 minutes)...")
+        status_text = st.empty()
+        progress_bar = st.progress(0)
+        
+        status_text.text("Step 1/4: Creating LangChain agent...")
+        progress_bar.progress(10)
         
         langchain_agent = reasoning_engines.LangchainAgent(
             model="gemini-2.0-flash",
@@ -260,44 +266,55 @@ You are a helpful AI assistant. Answer user questions thoughtfully and thoroughl
             }
         )
         
-        progress_bar.progress(30, text="Deploying to Vertex AI Agent Engine (this may take 5-10 minutes)...")
+        status_text.text("Step 2/4: Submitting to Agent Engine...")
+        progress_bar.progress(20)
         
-        create_operation = reasoning_engines.ReasoningEngine.create(
-            langchain_agent,
-            display_name=config["agent_name"],
-            description=config["description"],
-            requirements=[
-                "google-cloud-aiplatform[agent_engines,langchain]>=1.112.0",
-                "cloudpickle>=3.0.0",
-                "langchain>=0.3.0",
-                "langchain-google-vertexai>=2.0.0",
-            ],
-        )
+        import threading
+        import queue
         
-        progress_bar.progress(50, text="Waiting for deployment to complete...")
+        result_queue = queue.Queue()
+        error_queue = queue.Queue()
         
-        if hasattr(create_operation, '_gca_resource'):
-            remote_agent = create_operation
-        elif hasattr(create_operation, 'result'):
-            progress_bar.progress(60, text="Polling operation status...")
-            max_wait_time = 600
-            poll_interval = 10
-            elapsed = 0
-            
-            while elapsed < max_wait_time:
-                try:
-                    remote_agent = create_operation.result(timeout=poll_interval)
-                    break
-                except Exception as poll_error:
-                    elapsed += poll_interval
-                    progress_pct = min(50 + int((elapsed / max_wait_time) * 40), 89)
-                    progress_bar.progress(progress_pct, text=f"Deploying... ({elapsed}s elapsed)")
-                    if elapsed >= max_wait_time:
-                        raise TimeoutError(f"Deployment timed out after {max_wait_time}s")
-        else:
-            remote_agent = create_operation
+        def deploy_in_background():
+            try:
+                remote_agent = reasoning_engines.ReasoningEngine.create(
+                    langchain_agent,
+                    display_name=config["agent_name"],
+                    description=config["description"],
+                    requirements=[
+                        "google-cloud-aiplatform[langchain]>=1.50.0",
+                        "cloudpickle>=3.0.0",
+                        "langchain>=0.3.0",
+                        "langchain-google-vertexai>=2.0.0",
+                    ],
+                )
+                result_queue.put(remote_agent)
+            except Exception as e:
+                error_queue.put(e)
         
-        progress_bar.progress(90, text="Validating deployment...")
+        deploy_thread = threading.Thread(target=deploy_in_background)
+        deploy_thread.start()
+        
+        max_wait = 120
+        elapsed = 0
+        
+        while deploy_thread.is_alive() and elapsed < max_wait:
+            time.sleep(5)
+            elapsed += 5
+            pct = min(20 + int((elapsed / max_wait) * 60), 80)
+            progress_bar.progress(pct)
+            status_text.text(f"Step 3/4: Deploying to Agent Engine... ({elapsed}s)")
+        
+        if not error_queue.empty():
+            raise error_queue.get()
+        
+        if result_queue.empty():
+            raise TimeoutError(f"Agent Engine deployment timed out after {max_wait}s. This usually means permissions need to be configured.")
+        
+        remote_agent = result_queue.get()
+        
+        status_text.text("Step 4/4: Validating deployment...")
+        progress_bar.progress(90)
         
         resource_name = remote_agent.resource_name
         if not resource_name:
@@ -306,16 +323,15 @@ You are a helpful AI assistant. Answer user questions thoughtfully and thoroughl
         base_url = f"https://{location}-aiplatform.googleapis.com/v1beta1"
         endpoint_url = f"{base_url}/{resource_name}:query"
         
-        progress_bar.progress(95, text="Testing endpoint connectivity...")
-        
+        endpoint_validated = False
         try:
             test_response = remote_agent.query(input="Hello, are you ready?")
             endpoint_validated = True
         except Exception as test_error:
-            st.warning(f"Endpoint test returned: {test_error}. Agent deployed but may need warmup.")
-            endpoint_validated = False
+            st.warning(f"Endpoint may need warmup time: {test_error}")
         
-        progress_bar.progress(100, text="Deployment complete!")
+        progress_bar.progress(100)
+        status_text.text("✅ Agent Engine deployment complete!")
         
         st.session_state["deployed_remote_agent"] = remote_agent
         
@@ -334,8 +350,8 @@ You are a helpful AI assistant. Answer user questions thoughtfully and thoroughl
             
     except Exception as e:
         error_msg = str(e)
-        st.warning(f"Agent Engine deployment encountered an issue: {error_msg}")
-        st.info("Falling back to Gemini API with system instruction...")
+        st.warning(f"Agent Engine deployment issue: {error_msg}")
+        st.info("🔄 Using fast Gemini API deployment instead...")
         return deploy_vertex_ai_agent(config)
 
 
