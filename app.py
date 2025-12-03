@@ -5,6 +5,7 @@ import time
 import re
 import requests
 from typing import Optional
+from concurrent.futures import ThreadPoolExecutor, Future
 import vertexai
 from vertexai.generative_models import GenerativeModel
 from vertexai.preview import reasoning_engines
@@ -227,115 +228,138 @@ Respond to the following user input:"""
     return agent_code
 
 
-def deploy_reasoning_engine(config: dict) -> dict:
-    """Deploy agent using Vertex AI Agent Engine with LangChain.
+_executor = ThreadPoolExecutor(max_workers=2)
+
+def _deploy_reasoning_engine_worker(config: dict, system_message: str, agent_code: str) -> dict:
+    """Background worker that performs the actual Agent Engine deployment.
     
-    Note: Agent Engine deployment can take 5-10 minutes. If it fails or times out,
-    we automatically fall back to the Gemini API deployment which is instant.
+    This runs in a separate thread so the UI can keep updating.
     """
     config_env = get_project_config()
-    project_id = config_env["project_id"]
     location = config_env["location"]
     
+    print(f"[DEPLOY-WORKER] Starting deployment for agent: {config.get('agent_name', 'unknown')}", flush=True)
+    
+    print("[DEPLOY-WORKER] Creating LangChain agent...", flush=True)
+    langchain_agent = reasoning_engines.LangchainAgent(
+        model="gemini-2.0-flash",
+        model_kwargs={
+            "temperature": 0.7,
+            "max_output_tokens": 2048,
+        },
+        runnable_kwargs={
+            "system_message": system_message
+        }
+    )
+    print("[DEPLOY-WORKER] LangChain agent created, submitting to Agent Engine...", flush=True)
+    
+    remote_agent = reasoning_engines.ReasoningEngine.create(
+        langchain_agent,
+        display_name=config["agent_name"],
+        description=config["description"],
+        requirements=[
+            "google-cloud-aiplatform[langchain]>=1.50.0",
+            "cloudpickle>=3.0.0",
+            "langchain>=0.3.0",
+            "langchain-google-vertexai>=2.0.0",
+        ],
+    )
+    print(f"[DEPLOY-WORKER] Deployment complete! Resource: {remote_agent.resource_name}", flush=True)
+    
+    resource_name = remote_agent.resource_name
+    if not resource_name:
+        raise ValueError("Deployment succeeded but no resource name returned")
+    
+    base_url = f"https://{location}-aiplatform.googleapis.com/v1beta1"
+    endpoint_url = f"{base_url}/{resource_name}:query"
+    
+    endpoint_validated = False
     try:
-        agent_code = create_agent_template(config)
-        
-        system_message = f"""{config["instructions"]}
+        test_response = remote_agent.query(input="Hello, are you ready?")
+        endpoint_validated = True
+        print("[DEPLOY-WORKER] Endpoint validated successfully", flush=True)
+    except Exception as test_error:
+        print(f"[DEPLOY-WORKER] Endpoint warmup needed: {test_error}", flush=True)
+    
+    return {
+        "status": "deployed",
+        "resource_name": resource_name,
+        "endpoint_url": endpoint_url,
+        "display_name": config["agent_name"],
+        "description": config["description"],
+        "agent_code": agent_code,
+        "deployment_type": "reasoning_engine",
+        "config": config,
+        "endpoint_validated": endpoint_validated,
+        "system_message": system_message,
+        "remote_agent": remote_agent,
+    }
+
+
+def start_deployment_async(config: dict) -> None:
+    """Start the deployment in a background thread.
+    
+    Stores the Future in session_state so we can poll it.
+    """
+    agent_code = create_agent_template(config)
+    
+    system_message = f"""{config["instructions"]}
 
 Your personality: {config["personality"]}
 Agent type: {config["agent_type"]}
 Description: {config["description"]}
 
 You are a helpful AI assistant. Answer user questions thoughtfully and thoroughly."""
+    
+    future = _executor.submit(_deploy_reasoning_engine_worker, config, system_message, agent_code)
+    
+    st.session_state["deployment_future"] = future
+    st.session_state["deployment_start_time"] = time.time()
+    st.session_state["deployment_config"] = config
+    print(f"[DEPLOY] Background deployment started for: {config.get('agent_name', 'unknown')}", flush=True)
 
-        st.info("⏳ Deploying to Vertex AI Agent Engine (this takes 5-10 minutes)...")
-        
-        with st.status("Deploying agent...", expanded=True) as status:
-            try:
-                st.write("Step 1/4: Creating LangChain agent...")
-                
-                langchain_agent = reasoning_engines.LangchainAgent(
-                    model="gemini-2.0-flash",
-                    model_kwargs={
-                        "temperature": 0.7,
-                        "max_output_tokens": 2048,
-                    },
-                    runnable_kwargs={
-                        "system_message": system_message
-                    }
-                )
-                st.write("✓ LangChain agent created")
-                
-                st.write("Step 2/4: Submitting to Agent Engine...")
-                st.write("Step 3/4: Building and deploying (please wait up to 7 minutes)...")
-                
-                remote_agent = reasoning_engines.ReasoningEngine.create(
-                    langchain_agent,
-                    display_name=config["agent_name"],
-                    description=config["description"],
-                    requirements=[
-                        "google-cloud-aiplatform[langchain]>=1.50.0",
-                        "cloudpickle>=3.0.0",
-                        "langchain>=0.3.0",
-                        "langchain-google-vertexai>=2.0.0",
-                    ],
-                )
-                st.write("✓ Agent deployed to Agent Engine")
-                
-                st.write("Step 4/4: Validating deployment...")
-                status.update(label="Deployment complete!", state="complete", expanded=False)
-            except Exception as inner_error:
-                status.update(label="Deployment failed", state="error", expanded=True)
-                st.write(f"❌ Error: {inner_error}")
-                raise inner_error
-        
-        resource_name = remote_agent.resource_name
-        if not resource_name:
-            raise ValueError("Deployment succeeded but no resource name returned")
-        
-        base_url = f"https://{location}-aiplatform.googleapis.com/v1beta1"
-        endpoint_url = f"{base_url}/{resource_name}:query"
-        
-        endpoint_validated = False
+
+def check_deployment_status() -> Optional[dict]:
+    """Check if the background deployment is complete.
+    
+    Returns None if still running, or the result dict if complete.
+    """
+    if "deployment_future" not in st.session_state:
+        return None
+    
+    future = st.session_state["deployment_future"]
+    
+    if future.done():
         try:
-            test_response = remote_agent.query(input="Hello, are you ready?")
-            endpoint_validated = True
-        except Exception as test_error:
-            st.warning(f"Endpoint may need warmup time: {test_error}")
-        
-        st.success("✅ Agent Engine deployment complete!")
-        
-        st.session_state["deployed_remote_agent"] = remote_agent
-        
-        return {
-            "status": "deployed",
-            "resource_name": resource_name,
-            "endpoint_url": endpoint_url,
-            "display_name": config["agent_name"],
-            "description": config["description"],
-            "agent_code": agent_code,
-            "deployment_type": "reasoning_engine",
-            "config": config,
-            "endpoint_validated": endpoint_validated,
-            "system_message": system_message,
-        }
-            
-    except Exception as e:
-        error_msg = str(e)
-        st.error(f"❌ Agent Engine deployment failed: {error_msg}")
-        st.info("""
-**To fix this, ensure your service account has these roles in Google Cloud Console:**
-1. Vertex AI User
-2. Storage Admin  
-3. Service Account User
-4. Service Account Token Creator
+            result = future.result()
+            if "remote_agent" in result:
+                st.session_state["deployed_remote_agent"] = result.pop("remote_agent")
+            del st.session_state["deployment_future"]
+            del st.session_state["deployment_start_time"]
+            del st.session_state["deployment_config"]
+            return result
+        except Exception as e:
+            del st.session_state["deployment_future"]
+            del st.session_state["deployment_start_time"]
+            del st.session_state["deployment_config"]
+            return {
+                "status": "error",
+                "error": str(e),
+            }
+    
+    return None
 
-Go to: IAM & Admin → IAM → Find your service account → Edit → Add roles
-        """)
-        return {
-            "status": "error",
-            "error": error_msg,
-        }
+
+def is_deployment_running() -> bool:
+    """Check if a deployment is currently in progress."""
+    return "deployment_future" in st.session_state
+
+
+def get_deployment_elapsed_time() -> float:
+    """Get elapsed time in seconds since deployment started."""
+    if "deployment_start_time" in st.session_state:
+        return time.time() - st.session_state["deployment_start_time"]
+    return 0
 
 
 def deploy_vertex_ai_agent(config: dict) -> dict:
@@ -436,8 +460,28 @@ Description: {config['description']}"""
         }
 
 
+def deploy_reasoning_engine(config: dict) -> dict:
+    """Legacy synchronous deployment - now redirects to async.
+    
+    This is kept for backwards compatibility but the UI should use
+    start_deployment_async and check_deployment_status instead.
+    """
+    start_deployment_async(config)
+    
+    while is_deployment_running():
+        time.sleep(2)
+        result = check_deployment_status()
+        if result:
+            return result
+    
+    return {"status": "error", "error": "Deployment did not complete"}
+
+
 def deploy_agent(config: dict) -> dict:
-    """Deploy the agent to Vertex AI and return endpoint info."""
+    """Deploy the agent to Vertex AI and return endpoint info.
+    
+    Note: For proper UI responsiveness, use start_deployment_async instead.
+    """
     return deploy_reasoning_engine(config)
 
 
@@ -697,12 +741,36 @@ def main():
     if st.session_state.agent_config:
         st.header("3. Deploy Agent")
         
+        if is_deployment_running():
+            elapsed = get_deployment_elapsed_time()
+            minutes = int(elapsed // 60)
+            seconds = int(elapsed % 60)
+            
+            st.info(f"⏳ Deployment in progress... ({minutes}m {seconds}s elapsed)")
+            
+            with st.status("Deploying to Vertex AI Agent Engine...", expanded=True) as status:
+                st.write("Building agent in Google Cloud...")
+                st.write("This typically takes 5-10 minutes.")
+                st.write(f"Elapsed: {minutes} minutes {seconds} seconds")
+                
+                if elapsed > 600:
+                    st.warning("Deployment is taking longer than expected. Please wait...")
+            
+            result = check_deployment_status()
+            if result:
+                st.session_state.deployment_result = result
+                st.rerun()
+            else:
+                time.sleep(3)
+                st.rerun()
+        
         col_deploy, col_status = st.columns([1, 2])
         
         with col_deploy:
-            if st.button("🚀 Create & Deploy Agent", type="primary", use_container_width=True):
-                result = deploy_agent(st.session_state.agent_config)
-                st.session_state.deployment_result = result
+            deploy_disabled = is_deployment_running()
+            if st.button("🚀 Create & Deploy Agent", type="primary", use_container_width=True, disabled=deploy_disabled):
+                start_deployment_async(st.session_state.agent_config)
+                st.rerun()
         
         with col_status:
             if st.session_state.deployment_result:
