@@ -36,7 +36,7 @@ export const theme = createTheme({
       contrastText: cvsColors.white,
     },
     background: {
-      default: '#F8FAFC',
+      default: '#FFFFFF',
       paper: cvsColors.white,
     },
     text: {

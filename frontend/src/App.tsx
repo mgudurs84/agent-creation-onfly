@@ -179,59 +179,23 @@ function AppContent() {
             >
               <SmartToyIcon sx={{ color: 'white', fontSize: 26 }} />
             </Box>
-            <Box>
-              <Typography 
-                variant="h6" 
-                sx={{ 
-                  fontWeight: 700, 
-                  color: cvsColors.darkBlue,
-                  letterSpacing: '-0.01em',
-                  lineHeight: 1.2,
-                }}
-              >
-                AI Agent Builder
-              </Typography>
-              <Typography 
-                variant="caption" 
-                sx={{ 
-                  color: cvsColors.gray[500],
-                  fontWeight: 500,
-                }}
-              >
-                Powered by Vertex AI
-              </Typography>
-            </Box>
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                fontWeight: 700, 
+                color: cvsColors.darkBlue,
+                letterSpacing: '-0.01em',
+              }}
+            >
+              CDR Agent Builder
+            </Typography>
           </Box>
-
-          {health && (
-            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-              <Box sx={{ textAlign: 'right' }}>
-                <Typography variant="caption" sx={{ color: cvsColors.gray[500], display: 'block' }}>
-                  Project
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600, color: cvsColors.darkBlue }}>
-                  {health.project_id}
-                </Typography>
-              </Box>
-              <Box 
-                sx={{ 
-                  width: 8, 
-                  height: 8, 
-                  borderRadius: '50%', 
-                  bgcolor: health.has_credentials ? '#10B981' : cvsColors.red,
-                  boxShadow: health.has_credentials 
-                    ? '0 0 0 3px rgba(16, 185, 129, 0.2)' 
-                    : '0 0 0 3px rgba(204, 0, 0, 0.2)',
-                }} 
-              />
-            </Box>
-          )}
         </Toolbar>
       </AppBar>
 
       <Box
         sx={{
-          background: `linear-gradient(180deg, ${alpha(cvsColors.darkBlue, 0.03)} 0%, transparent 100%)`,
+          bgcolor: 'white',
           pt: 4,
           pb: 2,
         }}
@@ -347,7 +311,7 @@ function AppContent() {
 
         <Box sx={{ textAlign: 'center', mt: 6, pb: 4 }}>
           <Typography variant="body2" sx={{ color: cvsColors.gray[500] }}>
-            CVS Health AI Platform • Built with React & Vertex AI
+            CVS Health CDR Platform
           </Typography>
         </Box>
       </Container>
