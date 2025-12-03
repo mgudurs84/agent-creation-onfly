@@ -248,81 +248,39 @@ Description: {config["description"]}
 
 You are a helpful AI assistant. Answer user questions thoughtfully and thoroughly."""
 
-        st.info("⏳ Attempting Vertex AI Agent Engine deployment (this can take 5-10 minutes)...")
-        status_text = st.empty()
-        progress_bar = st.progress(0)
+        st.info("⏳ Deploying to Vertex AI Agent Engine (this takes 5-10 minutes)...")
         
-        status_text.text("Step 1/4: Creating LangChain agent...")
-        progress_bar.progress(10)
-        
-        langchain_agent = reasoning_engines.LangchainAgent(
-            model="gemini-2.0-flash",
-            model_kwargs={
-                "temperature": 0.7,
-                "max_output_tokens": 2048,
-            },
-            runnable_kwargs={
-                "system_message": system_message
-            }
-        )
-        
-        status_text.text("Step 2/4: Submitting to Agent Engine...")
-        progress_bar.progress(20)
-        
-        import threading
-        import queue
-        
-        result_queue = queue.Queue()
-        error_queue = queue.Queue()
-        
-        def deploy_in_background():
-            try:
-                remote_agent = reasoning_engines.ReasoningEngine.create(
-                    langchain_agent,
-                    display_name=config["agent_name"],
-                    description=config["description"],
-                    requirements=[
-                        "google-cloud-aiplatform[langchain]>=1.50.0",
-                        "cloudpickle>=3.0.0",
-                        "langchain>=0.3.0",
-                        "langchain-google-vertexai>=2.0.0",
-                    ],
-                )
-                result_queue.put(remote_agent)
-            except Exception as e:
-                error_queue.put(e)
-        
-        deploy_thread = threading.Thread(target=deploy_in_background)
-        deploy_thread.start()
-        
-        max_wait = 420
-        elapsed = 0
-        
-        while deploy_thread.is_alive() and elapsed < max_wait:
-            time.sleep(5)
-            elapsed += 5
-            minutes = elapsed // 60
-            seconds = elapsed % 60
-            pct = min(20 + int((elapsed / max_wait) * 60), 80)
-            progress_bar.progress(pct)
-            status_text.text(f"Step 3/4: Deploying to Agent Engine... ({minutes}m {seconds}s)")
-        
-        if not error_queue.empty():
-            raise error_queue.get()
-        
-        if result_queue.empty():
-            if deploy_thread.is_alive():
-                status_text.text("Still deploying... please wait")
-                deploy_thread.join(timeout=180)
-                if not result_queue.empty():
-                    pass
-                else:
-                    raise TimeoutError(f"Agent Engine deployment timed out after {max_wait}s. Please check your service account permissions in Google Cloud Console.")
-        
-        remote_agent = result_queue.get()
-        
-        status_text.text("Step 4/4: Validating deployment...")
-        progress_bar.progress(90)
+        with st.status("Deploying agent...", expanded=True) as status:
+            st.write("Step 1/4: Creating LangChain agent...")
+            
+            langchain_agent = reasoning_engines.LangchainAgent(
+                model="gemini-2.0-flash",
+                model_kwargs={
+                    "temperature": 0.7,
+                    "max_output_tokens": 2048,
+                },
+                runnable_kwargs={
+                    "system_message": system_message
+                }
+            )
+            
+            st.write("Step 2/4: Submitting to Agent Engine...")
+            st.write("Step 3/4: Building and deploying (please wait up to 7 minutes)...")
+            
+            remote_agent = reasoning_engines.ReasoningEngine.create(
+                langchain_agent,
+                display_name=config["agent_name"],
+                description=config["description"],
+                requirements=[
+                    "google-cloud-aiplatform[langchain]>=1.50.0",
+                    "cloudpickle>=3.0.0",
+                    "langchain>=0.3.0",
+                    "langchain-google-vertexai>=2.0.0",
+                ],
+            )
+            
+            st.write("Step 4/4: Validating deployment...")
+            status.update(label="Deployment complete!", state="complete", expanded=False)
         
         resource_name = remote_agent.resource_name
         if not resource_name:
