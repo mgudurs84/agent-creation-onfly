@@ -251,36 +251,43 @@ You are a helpful AI assistant. Answer user questions thoughtfully and thoroughl
         st.info("⏳ Deploying to Vertex AI Agent Engine (this takes 5-10 minutes)...")
         
         with st.status("Deploying agent...", expanded=True) as status:
-            st.write("Step 1/4: Creating LangChain agent...")
-            
-            langchain_agent = reasoning_engines.LangchainAgent(
-                model="gemini-2.0-flash",
-                model_kwargs={
-                    "temperature": 0.7,
-                    "max_output_tokens": 2048,
-                },
-                runnable_kwargs={
-                    "system_message": system_message
-                }
-            )
-            
-            st.write("Step 2/4: Submitting to Agent Engine...")
-            st.write("Step 3/4: Building and deploying (please wait up to 7 minutes)...")
-            
-            remote_agent = reasoning_engines.ReasoningEngine.create(
-                langchain_agent,
-                display_name=config["agent_name"],
-                description=config["description"],
-                requirements=[
-                    "google-cloud-aiplatform[langchain]>=1.50.0",
-                    "cloudpickle>=3.0.0",
-                    "langchain>=0.3.0",
-                    "langchain-google-vertexai>=2.0.0",
-                ],
-            )
-            
-            st.write("Step 4/4: Validating deployment...")
-            status.update(label="Deployment complete!", state="complete", expanded=False)
+            try:
+                st.write("Step 1/4: Creating LangChain agent...")
+                
+                langchain_agent = reasoning_engines.LangchainAgent(
+                    model="gemini-2.0-flash",
+                    model_kwargs={
+                        "temperature": 0.7,
+                        "max_output_tokens": 2048,
+                    },
+                    runnable_kwargs={
+                        "system_message": system_message
+                    }
+                )
+                st.write("✓ LangChain agent created")
+                
+                st.write("Step 2/4: Submitting to Agent Engine...")
+                st.write("Step 3/4: Building and deploying (please wait up to 7 minutes)...")
+                
+                remote_agent = reasoning_engines.ReasoningEngine.create(
+                    langchain_agent,
+                    display_name=config["agent_name"],
+                    description=config["description"],
+                    requirements=[
+                        "google-cloud-aiplatform[langchain]>=1.50.0",
+                        "cloudpickle>=3.0.0",
+                        "langchain>=0.3.0",
+                        "langchain-google-vertexai>=2.0.0",
+                    ],
+                )
+                st.write("✓ Agent deployed to Agent Engine")
+                
+                st.write("Step 4/4: Validating deployment...")
+                status.update(label="Deployment complete!", state="complete", expanded=False)
+            except Exception as inner_error:
+                status.update(label="Deployment failed", state="error", expanded=True)
+                st.write(f"❌ Error: {inner_error}")
+                raise inner_error
         
         resource_name = remote_agent.resource_name
         if not resource_name:
@@ -296,8 +303,7 @@ You are a helpful AI assistant. Answer user questions thoughtfully and thoroughl
         except Exception as test_error:
             st.warning(f"Endpoint may need warmup time: {test_error}")
         
-        progress_bar.progress(100)
-        status_text.text("✅ Agent Engine deployment complete!")
+        st.success("✅ Agent Engine deployment complete!")
         
         st.session_state["deployed_remote_agent"] = remote_agent
         
