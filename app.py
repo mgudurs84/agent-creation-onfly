@@ -228,18 +228,14 @@ Respond to the following user input:"""
 
 
 def deploy_reasoning_engine(config: dict) -> dict:
-    """Deploy agent using Vertex AI Reasoning Engine with LangChain."""
+    """Deploy agent using Vertex AI Agent Engine with LangChain."""
     config_env = get_project_config()
     project_id = config_env["project_id"]
     location = config_env["location"]
     
-    model_resource = f"projects/{project_id}/locations/{location}/publishers/google/models/gemini-2.0-flash-exp"
-    
     try:
         agent_code = create_agent_template(config)
         progress_bar = st.progress(0, text="Initializing deployment...")
-        
-        from langchain_google_vertexai import ChatVertexAI
         
         progress_bar.progress(10, text="Creating LangChain agent...")
         
@@ -251,10 +247,10 @@ Description: {config["description"]}
 
 You are a helpful AI assistant. Answer user questions thoughtfully and thoroughly."""
 
-        progress_bar.progress(20, text="Configuring Reasoning Engine...")
+        progress_bar.progress(20, text="Configuring Agent Engine...")
         
         langchain_agent = reasoning_engines.LangchainAgent(
-            model="gemini-2.0-flash-exp",
+            model="gemini-2.0-flash",
             model_kwargs={
                 "temperature": 0.7,
                 "max_output_tokens": 2048,
@@ -264,18 +260,17 @@ You are a helpful AI assistant. Answer user questions thoughtfully and thoroughl
             }
         )
         
-        progress_bar.progress(30, text="Deploying to Vertex AI Reasoning Engine (this may take 5-10 minutes)...")
+        progress_bar.progress(30, text="Deploying to Vertex AI Agent Engine (this may take 5-10 minutes)...")
         
         create_operation = reasoning_engines.ReasoningEngine.create(
             langchain_agent,
             display_name=config["agent_name"],
             description=config["description"],
             requirements=[
-                "google-cloud-aiplatform[langchain,reasoningengine]>=1.72.0",
+                "google-cloud-aiplatform[agent_engines,langchain]>=1.112.0",
                 "cloudpickle>=3.0.0",
                 "langchain>=0.3.0",
                 "langchain-google-vertexai>=2.0.0",
-                "pydantic>=2.0.0",
             ],
         )
         
@@ -339,7 +334,7 @@ You are a helpful AI assistant. Answer user questions thoughtfully and thoroughl
             
     except Exception as e:
         error_msg = str(e)
-        st.warning(f"Reasoning Engine deployment encountered an issue: {error_msg}")
+        st.warning(f"Agent Engine deployment encountered an issue: {error_msg}")
         st.info("Falling back to Gemini API with system instruction...")
         return deploy_vertex_ai_agent(config)
 
