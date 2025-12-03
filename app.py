@@ -82,7 +82,7 @@ def init_vertex_ai():
     """Initialize Vertex AI with project and location."""
     config = get_project_config()
     credentials = get_credentials()
-    staging_bucket = f"gs://{config['project_id']}-staging"
+    staging_bucket = "gs://vertex-agent-staging"
     
     try:
         if credentials:
