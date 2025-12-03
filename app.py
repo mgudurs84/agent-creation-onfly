@@ -295,21 +295,29 @@ You are a helpful AI assistant. Answer user questions thoughtfully and thoroughl
         deploy_thread = threading.Thread(target=deploy_in_background)
         deploy_thread.start()
         
-        max_wait = 120
+        max_wait = 420
         elapsed = 0
         
         while deploy_thread.is_alive() and elapsed < max_wait:
             time.sleep(5)
             elapsed += 5
+            minutes = elapsed // 60
+            seconds = elapsed % 60
             pct = min(20 + int((elapsed / max_wait) * 60), 80)
             progress_bar.progress(pct)
-            status_text.text(f"Step 3/4: Deploying to Agent Engine... ({elapsed}s)")
+            status_text.text(f"Step 3/4: Deploying to Agent Engine... ({minutes}m {seconds}s)")
         
         if not error_queue.empty():
             raise error_queue.get()
         
         if result_queue.empty():
-            raise TimeoutError(f"Agent Engine deployment timed out after {max_wait}s. This usually means permissions need to be configured.")
+            if deploy_thread.is_alive():
+                status_text.text("Still deploying... please wait")
+                deploy_thread.join(timeout=180)
+                if not result_queue.empty():
+                    pass
+                else:
+                    raise TimeoutError(f"Agent Engine deployment timed out after {max_wait}s. Please check your service account permissions in Google Cloud Console.")
         
         remote_agent = result_queue.get()
         
@@ -350,9 +358,20 @@ You are a helpful AI assistant. Answer user questions thoughtfully and thoroughl
             
     except Exception as e:
         error_msg = str(e)
-        st.warning(f"Agent Engine deployment issue: {error_msg}")
-        st.info("🔄 Using fast Gemini API deployment instead...")
-        return deploy_vertex_ai_agent(config)
+        st.error(f"❌ Agent Engine deployment failed: {error_msg}")
+        st.info("""
+**To fix this, ensure your service account has these roles in Google Cloud Console:**
+1. Vertex AI User
+2. Storage Admin  
+3. Service Account User
+4. Service Account Token Creator
+
+Go to: IAM & Admin → IAM → Find your service account → Edit → Add roles
+        """)
+        return {
+            "status": "error",
+            "error": error_msg,
+        }
 
 
 def deploy_vertex_ai_agent(config: dict) -> dict:
