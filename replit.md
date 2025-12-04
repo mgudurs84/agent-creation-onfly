@@ -1,7 +1,7 @@
-# Vertex AI Agent Builder
+# CDR Agent Builder
 
 ## Overview
-A React + FastAPI application with CVS Health branding that creates and deploys Vertex AI agents from natural language descriptions. Users describe their agent requirements in plain text, and the application parses, configures, and deploys a working AI agent with a REST API endpoint.
+A React + FastAPI application with CVS Health branding that creates and deploys AI agents from natural language descriptions. Users describe their agent requirements in plain text, and the application parses, configures, and deploys a working AI agent.
 
 ## Current State
 - **Status**: MVP Complete
@@ -14,29 +14,99 @@ A React + FastAPI application with CVS Health branding that creates and deploys 
 - **Primary Red**: #CC0000 (CTAs, primary actions)
 - **Dark Blue**: #17447C (headers, navigation)
 - **Light Blue**: #44B4E7 (accents, highlights)
-- **Design**: Professional healthcare aesthetic with gradient backgrounds
+- **Design**: Clean white background with professional healthcare aesthetic
 
-## Features
-1. **4-Step Workflow**: Describe → Configure → Deploy → Test with visual stepper
-2. **Intent Parsing**: Uses Gemini 2.0 Flash to parse requirements into structured JSON
-3. **Configuration Editor**: Interactive JSON editor with syntax highlighting
-4. **Agent Deployment**: Vertex AI Reasoning Engine with LangChain integration
-5. **Agent Testing**: Chat interface to test deployed agents
-6. **Quick-Start Templates**: Pre-built sample prompts for common agent types
+---
 
-## Configuration
+## Local Development Setup
 
-### Required Secrets
-- `GOOGLE_APPLICATION_CREDENTIALS_JSON`: Service account JSON with Vertex AI permissions
+### Prerequisites
+- Node.js 18+ (for frontend)
+- Python 3.11+ (for backend)
+- Google Cloud service account with Vertex AI permissions
 
-### Optional Environment Variables
-- `VERTEX_AI_PROJECT_ID`: Override default project ID (default: vertex-ai-demo-468112)
-- `VERTEX_AI_LOCATION`: Override default location (default: us-central1)
+### Step 1: Clone and Install Dependencies
 
-### Required IAM Roles for Service Account
-- Vertex AI User
-- Vertex AI Service Agent
-- AI Platform Admin
+```bash
+# Clone the repository
+git clone <your-repo-url>
+cd <project-folder>
+
+# Install frontend dependencies
+cd frontend
+npm install
+
+# Install backend dependencies (from project root)
+cd ..
+pip install -r requirements.txt
+# Or using uv:
+uv sync
+```
+
+### Step 2: Configure Secrets
+
+#### Option A: Environment Variables (Recommended for Local Development)
+
+Create a `.env` file in the project root:
+
+```bash
+# .env file
+GOOGLE_APPLICATION_CREDENTIALS_JSON='<paste-your-service-account-json-here>'
+VERTEX_AI_PROJECT_ID=your-gcp-project-id
+VERTEX_AI_LOCATION=us-central1
+```
+
+**Important**: The `GOOGLE_APPLICATION_CREDENTIALS_JSON` should contain the entire JSON content of your service account key file, wrapped in single quotes.
+
+#### Option B: Service Account Key File
+
+1. Download your service account JSON key from Google Cloud Console
+2. Set the environment variable:
+
+```bash
+# Linux/Mac
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/your-service-account.json
+
+# Windows PowerShell
+$env:GOOGLE_APPLICATION_CREDENTIALS="C:\path\to\your-service-account.json"
+
+# Windows CMD
+set GOOGLE_APPLICATION_CREDENTIALS=C:\path\to\your-service-account.json
+```
+
+### Step 3: Create Service Account (if you don't have one)
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Navigate to **IAM & Admin > Service Accounts**
+3. Click **Create Service Account**
+4. Name it (e.g., `vertex-ai-agent-builder`)
+5. Grant these roles:
+   - `Vertex AI User`
+   - `Vertex AI Service Agent`
+   - `AI Platform Admin`
+6. Click **Create Key** > **JSON** > Download
+
+### Step 4: Run the Application
+
+Open two terminal windows:
+
+**Terminal 1 - Backend API (port 8000):**
+```bash
+cd backend
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+**Terminal 2 - Frontend (port 5000):**
+```bash
+cd frontend
+npm run dev -- --host 0.0.0.0 --port 5000
+```
+
+### Step 5: Access the Application
+
+Open your browser to: `http://localhost:5000`
+
+---
 
 ## Project Structure
 ```
@@ -45,7 +115,8 @@ A React + FastAPI application with CVS Health branding that creates and deploys 
 │   ├── src/
 │   │   ├── App.tsx              # Main application component
 │   │   ├── theme.ts             # CVS Health Material UI theme
-│   │   ├── api.ts               # API client for backend
+│   │   ├── services/
+│   │   │   └── api.ts           # API client for backend
 │   │   ├── types/
 │   │   │   └── index.ts         # TypeScript interfaces
 │   │   └── components/
@@ -62,6 +133,14 @@ A React + FastAPI application with CVS Health branding that creates and deploys 
 └── replit.md                    # This file
 ```
 
+## Features
+1. **4-Step Workflow**: Describe → Configure → Deploy → Test with visual stepper
+2. **Intent Parsing**: Uses Gemini 2.0 Flash to parse requirements into structured JSON
+3. **Configuration Editor**: Interactive JSON editor with syntax highlighting
+4. **Agent Deployment**: Vertex AI Reasoning Engine with LangChain integration
+5. **Agent Testing**: Chat interface to test deployed agents
+6. **Quick-Start Templates**: Pre-built sample prompts for common agent types
+
 ## User Flow
 1. User enters agent requirements in natural language (or clicks a quick-start chip)
 2. Click "Generate Configuration" to parse with Gemini 2.0
@@ -70,7 +149,18 @@ A React + FastAPI application with CVS Health branding that creates and deploys 
 5. Wait for deployment (with real-time status updates)
 6. Test the agent via the chat interface
 
-## Parsed Configuration Fields
+## API Endpoints
+
+### Backend (FastAPI on port 8000)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/health` | GET | Health check and credentials status |
+| `/api/parse-requirements` | POST | Parse natural language into agent config |
+| `/api/deploy-agent` | POST | Start agent deployment |
+| `/api/deployment-status/{id}` | GET | Get deployment status |
+| `/api/test-agent` | POST | Test a deployed agent |
+
+## Configuration Fields
 - `agent_name`: Identifier for the agent (lowercase with underscores)
 - `agent_type`: conversational, task-oriented, qa, creative, analytical
 - `description`: What the agent does
@@ -79,32 +169,19 @@ A React + FastAPI application with CVS Health branding that creates and deploys 
 - `personality`: Communication style
 - `instructions`: Detailed behavior instructions
 
-## API Endpoints
+## Troubleshooting
 
-### Backend (FastAPI on port 8000)
-- `POST /api/parse-requirements`: Parse natural language into agent config
-- `POST /api/deploy-agent`: Start agent deployment
-- `GET /api/deployment-status/{id}`: Get deployment status
-- `POST /api/test-agent`: Test a deployed agent
+### "Failed to connect to backend API"
+- Ensure the backend is running on port 8000
+- Check that the frontend proxy is configured correctly in `vite.config.ts`
 
-### Frontend (Vite on port 5000)
-- Serves the React application
-- Proxies API requests to backend
+### "Google Cloud credentials not configured"
+- Verify your `GOOGLE_APPLICATION_CREDENTIALS_JSON` secret is set
+- Ensure the service account has the required IAM roles
 
-## Running Locally
-```bash
-# Frontend
-cd frontend && npm run dev -- --port 5000
-
-# Backend
-uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-## State Management
-- Uses React Query for server state
-- Local state for UI flow (stepper, forms)
-- Automatic state reset on configuration changes
-- Deployment state invalidation on any config edit
+### Deployment takes too long
+- Vertex AI Reasoning Engine deployments can take 5-10 minutes
+- Check the Google Cloud Console for deployment status
 
 ## Dependencies
 
@@ -123,14 +200,9 @@ uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 - langchain, langchain-google-vertexai
 - pydantic
 
-## Authentication
-The application uses service account credentials with proper OAuth2 scopes:
-- `https://www.googleapis.com/auth/cloud-platform`
-- `https://www.googleapis.com/auth/aiplatform`
-
 ## Recent Changes
+- December 2024: Renamed to CDR Agent Builder
+- December 2024: Clean white background UI update
 - December 2024: Migrated from Streamlit to React + Material UI + FastAPI
 - December 2024: Implemented CVS Health corporate branding
 - December 2024: Added 4-step workflow with visual stepper
-- December 2024: Built comprehensive state management with proper reset logic
-- December 2024: Created quick-start template chips for common agent types

@@ -14,7 +14,6 @@ dependencies = [
     "langchain-google-vertexai>=3.1.1",
     "pydantic>=2.12.5",
     "requests>=2.32.5",
-    "streamlit>=1.51.0",
     "fastapi>=0.115.0",
     "uvicorn>=0.32.0",
     "googleapis-common-protos[grpc]>=1.72.0",
