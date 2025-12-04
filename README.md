@@ -9,3 +9,5 @@ Terminal 2 - Frontend (port 3000):
 
 cd C:\AgentForge\AgentForge-1\AgentForge-1\frontend
 npm run dev
+
+pip install fastapi uvicorn "google-cloud-aiplatform[langchain,reasoningengine]" google-auth langchain langchain-google-vertexai cloudpickle pydantic
