@@ -1,5 +1,17 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+print("=" * 50)
+print("STARTUP: Checking environment variables...")
+print(f"GOOGLE_APPLICATION_CREDENTIALS: {os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', 'NOT SET')}")
+print(f"GOOGLE_APPLICATION_CREDENTIALS_JSON: {'SET' if os.environ.get('GOOGLE_APPLICATION_CREDENTIALS_JSON') else 'NOT SET'}")
+print(f"VERTEX_AI_PROJECT_ID: {os.environ.get('VERTEX_AI_PROJECT_ID', 'NOT SET')}")
+
+creds_file = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+if creds_file:
+    print(f"Checking if file exists: {os.path.exists(creds_file)}")
+print("=" * 50)
 
 try:
     from backend.routers import agents
