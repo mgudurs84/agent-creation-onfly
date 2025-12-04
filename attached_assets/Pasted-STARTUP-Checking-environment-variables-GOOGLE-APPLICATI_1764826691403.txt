@@ -1,0 +1,32 @@
+STARTUP: Checking environment variables...
+GOOGLE_APPLICATION_CREDENTIALS: C:\AgentForge\AgentForge-1\AgentForge-1\vertex-ai-demo-468112-be60a1e31942.json
+GOOGLE_APPLICATION_CREDENTIALS_JSON: NOT SET
+VERTEX_AI_PROJECT_ID: vertex-ai-demo-468112
+Checking if file exists: True
+==================================================
+INFO:     Started server process [15780]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+[AUTH] Checking credentials...
+[AUTH] GOOGLE_APPLICATION_CREDENTIALS = C:\AgentForge\AgentForge-1\AgentForge-1\vertex-ai-demo-468112-be60a1e31942.json
+[AUTH] File exists: True
+INFO:     127.0.0.1:51094 - "GET /api/health HTTP/1.1" 200 OK
+[AUTH] Checking credentials...
+[AUTH] GOOGLE_APPLICATION_CREDENTIALS = C:\AgentForge\AgentForge-1\AgentForge-1\vertex-ai-demo-468112-be60a1e31942.json
+[AUTH] File exists: True
+C:\Users\mural\AppData\Local\Programs\Python\Python313\Lib\site-packages\vertexai\generative_models\_generative_models.py:433: UserWarning: This feature is deprecated as of June 24, 2025 and will be removed on June 24, 2026. For details, see https://cloud.google.com/vertex-ai/generative-ai/docs/deprecations/genai-vertexai-sdk.
+  warning_logs.show_deprecation_warning()
+INFO:     127.0.0.1:61353 - "POST /api/parse HTTP/1.1" 200 OK
+[AUTH] Checking credentials...
+[AUTH] GOOGLE_APPLICATION_CREDENTIALS = C:\AgentForge\AgentForge-1\AgentForge-1\vertex-ai-demo-468112-be60a1e31942.json
+[AUTH] File exists: True
+[DEPLOY-84e081e8] Starting deployment for: test_mcp_server
+INFO:     127.0.0.1:59726 - "POST /api/deploy HTTP/1.1" 200 OK
+[DEPLOY-84e081e8] Creating LangChain agent...
+[DEPLOY-84e081e8] Submitting to Agent Engine...
+INFO:     127.0.0.1:61731 - "GET /api/status/84e081e8-9aa3-4a4b-9a8f-b6df32b0f6b1 HTTP/1.1" 200 OK
+Using bucket vertex-agent-staging
+Writing to gs://vertex-agent-staging/reasoning_engine/reasoning_engine.pkl
+Writing to gs://vertex-agent-staging/reasoning_engine/requirements.txt
+Creating in-memory tarfile of extra_packages
+Writing to gs://vertex-agent-staging/reasoning_engine/dependencies.tar.gz
