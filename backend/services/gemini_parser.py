@@ -2,8 +2,13 @@ import json
 import re
 import vertexai
 from vertexai.generative_models import GenerativeModel
-from backend.config import get_project_config, STAGING_BUCKET
-from backend.services.auth import get_credentials
+
+try:
+    from backend.config import get_project_config, STAGING_BUCKET
+    from backend.services.auth import get_credentials
+except ImportError:
+    from config import get_project_config, STAGING_BUCKET
+    from services.auth import get_credentials
 
 PARSING_PROMPT = """You are a configuration parser for Vertex AI agents. Parse the following user request and extract a structured JSON configuration for creating an AI agent.
 

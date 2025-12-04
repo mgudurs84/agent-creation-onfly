@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routers import agents
+
+try:
+    from backend.routers import agents
+except ImportError:
+    from routers import agents
 
 app = FastAPI(
     title="Vertex AI Agent Builder API",

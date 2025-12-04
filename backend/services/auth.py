@@ -3,7 +3,11 @@ import json
 import tempfile
 from google.oauth2 import service_account
 from google.auth.transport.requests import Request as AuthRequest
-from backend.config import VERTEX_AI_SCOPES
+
+try:
+    from backend.config import VERTEX_AI_SCOPES
+except ImportError:
+    from config import VERTEX_AI_SCOPES
 
 _cached_credentials = None
 _cached_credentials_path = None

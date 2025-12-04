@@ -4,8 +4,13 @@ import requests
 import vertexai
 from vertexai.preview import reasoning_engines
 from vertexai.generative_models import GenerativeModel
-from backend.config import get_project_config, STAGING_BUCKET
-from backend.services.auth import get_credentials, get_access_token
+
+try:
+    from backend.config import get_project_config, STAGING_BUCKET
+    from backend.services.auth import get_credentials, get_access_token
+except ImportError:
+    from config import get_project_config, STAGING_BUCKET
+    from services.auth import get_credentials, get_access_token
 
 deployments = {}
 

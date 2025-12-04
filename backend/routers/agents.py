@@ -1,15 +1,27 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
-from backend.services.gemini_parser import parse_agent_requirements
-from backend.services.vertex_ai import (
-    start_deployment,
-    get_deployment_status,
-    test_agent,
-    DeploymentStatus
-)
-from backend.config import SAMPLE_PROMPTS, get_project_config
-from backend.services.auth import has_credentials
+
+try:
+    from backend.services.gemini_parser import parse_agent_requirements
+    from backend.services.vertex_ai import (
+        start_deployment,
+        get_deployment_status,
+        test_agent,
+        DeploymentStatus
+    )
+    from backend.config import SAMPLE_PROMPTS, get_project_config
+    from backend.services.auth import has_credentials
+except ImportError:
+    from services.gemini_parser import parse_agent_requirements
+    from services.vertex_ai import (
+        start_deployment,
+        get_deployment_status,
+        test_agent,
+        DeploymentStatus
+    )
+    from config import SAMPLE_PROMPTS, get_project_config
+    from services.auth import has_credentials
 
 router = APIRouter(prefix="/api", tags=["agents"])
 
