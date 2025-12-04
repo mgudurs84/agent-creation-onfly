@@ -78,14 +78,24 @@ def get_access_token():
 
 def has_credentials():
     if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON"):
+        print("[AUTH] Found GOOGLE_APPLICATION_CREDENTIALS_JSON")
         return True
     
     credentials_file = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-    if credentials_file and os.path.exists(credentials_file):
-        return True
+    if credentials_file:
+        print(f"[AUTH] GOOGLE_APPLICATION_CREDENTIALS set to: {credentials_file}")
+        if os.path.exists(credentials_file):
+            print(f"[AUTH] File exists: True")
+            return True
+        else:
+            print(f"[AUTH] File exists: False - file not found at path")
+    else:
+        print("[AUTH] GOOGLE_APPLICATION_CREDENTIALS not set")
     
     try:
         credentials, project = google.auth.default()
+        print(f"[AUTH] Using default credentials for project: {project}")
         return True
-    except Exception:
+    except Exception as e:
+        print(f"[AUTH] No default credentials: {e}")
         return False
